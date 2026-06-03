@@ -18,10 +18,24 @@
 
     <section id="lockedView" class="panel auth-panel">
       <h2>解锁保险库</h2>
-      <p class="muted">密钥在浏览器端加密后保存到云端，供公司成员共享使用。</p>
+      <p class="muted">所有者可修改所有密码，管理员可维护账号，员工只能查看验证码。</p>
       <form id="unlockForm" class="stack">
+        <div class="segmented triple" role="radiogroup" aria-label="登录角色">
+          <label>
+            <input type="radio" name="loginRole" value="viewer" checked>
+            <span>员工查看</span>
+          </label>
+          <label>
+            <input type="radio" name="loginRole" value="admin">
+            <span>管理员</span>
+          </label>
+          <label>
+            <input type="radio" name="loginRole" value="owner">
+            <span>所有者</span>
+          </label>
+        </div>
         <label>
-          主密码
+          密码
           <input id="passwordInput" type="password" autocomplete="current-password" minlength="8" required>
         </label>
         <button class="primary" type="submit">解锁 / 创建</button>
@@ -30,37 +44,67 @@
     </section>
 
     <section id="appView" hidden>
-      <section class="panel add-panel">
-        <div class="panel-head">
+      <section id="ownerPanel" class="admin-tools" hidden>
+        <section class="panel password-panel">
           <div>
-            <h2>添加账号</h2>
-            <p class="muted">输入服务名、账号和 Base32 Secret。</p>
+            <h2>用户组密码</h2>
+            <p id="passwordStatus" class="muted">所有者可以设置或更新所有用户组密码。</p>
           </div>
-        </div>
-        <form id="addForm" class="add-form">
-          <label>
-            服务名
-            <input id="issuerInput" type="text" placeholder="例如 GitHub" required>
-          </label>
-          <label>
-            账号
-            <input id="accountInput" type="text" placeholder="name@example.com" required>
-          </label>
-          <label class="secret-field">
-            Secret
-            <input id="secretInput" type="text" placeholder="JBSWY3DPEHPK3PXP" spellcheck="false" required>
-          </label>
-          <button class="primary" type="submit">添加</button>
-        </form>
-        <p class="hint">支持常见 TOTP：SHA-1、30 秒、6 位验证码。</p>
+          <form id="passwordForm" class="password-form">
+            <label>
+              用户组
+              <select id="passwordRoleSelect">
+                <option value="owner">所有者</option>
+                <option value="admin">管理员</option>
+                <option value="viewer">员工查看</option>
+              </select>
+            </label>
+            <label>
+              新密码
+              <input id="rolePasswordInput" type="password" minlength="8" autocomplete="new-password" required>
+            </label>
+            <button class="ghost" type="submit">保存</button>
+          </form>
+          <p id="passwordHint" class="hint"></p>
+        </section>
+      </section>
+
+      <section id="adminPanel" class="admin-tools" hidden>
+        <section class="panel add-panel">
+          <div class="panel-head">
+            <div>
+              <h2>添加账号</h2>
+              <p class="muted">输入服务名、账号和 Base32 Secret。</p>
+            </div>
+          </div>
+          <form id="addForm" class="add-form">
+            <label>
+              服务名
+              <input id="issuerInput" type="text" placeholder="例如 GitHub" required>
+            </label>
+            <label>
+              账号
+              <input id="accountInput" type="text" placeholder="name@example.com" required>
+            </label>
+            <label class="secret-field">
+              Secret
+              <input id="secretInput" type="text" placeholder="JBSWY3DPEHPK3PXP" spellcheck="false" required>
+            </label>
+            <button class="primary" type="submit">添加</button>
+          </form>
+          <p class="hint">支持常见 TOTP：SHA-1、30 秒、6 位验证码。</p>
+        </section>
       </section>
 
       <section class="grid-wrap">
         <div class="section-title">
-          <h2>验证码</h2>
+          <div>
+            <h2>验证码</h2>
+            <p id="roleHint" class="muted compact"></p>
+          </div>
           <span id="countdown" class="countdown">30s</span>
         </div>
-        <div id="emptyState" class="empty panel">还没有账号。添加一个 Secret 后，这里会显示动态验证码。</div>
+        <div id="emptyState" class="empty panel">还没有账号。管理员或所有者添加 Secret 后，这里会显示动态验证码。</div>
         <div id="tokenGrid" class="token-grid"></div>
       </section>
     </section>
@@ -75,7 +119,7 @@
         </div>
         <button class="icon-btn delete" type="button" title="删除" aria-label="删除">×</button>
       </div>
-      <button class="code" type="button" title="点击复制"></button>
+      <button class="code" type="button" title="点击复制验证码"></button>
       <div class="progress"><span></span></div>
     </article>
   </template>

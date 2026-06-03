@@ -14,6 +14,7 @@ const sessions = new Map();
 const authIterations = 210000;
 const vaultIterations = 210000;
 const sessionMaxAgeMs = 12 * 60 * 60 * 1000;
+const roles = new Set(["owner", "admin", "viewer"]);
 
 function base64(bytes) {
   return Buffer.from(bytes).toString("base64");
@@ -68,42 +69,159 @@ async function deriveKey(password, salt, iterations = vaultIterations) {
   return pbkdf2(password, salt, iterations, 32, "sha256");
 }
 
-async function hashPassword(password, salt) {
-  return pbkdf2(password, salt, authIterations, 32, "sha256");
+async function hashPassword(password, salt, iterations = authIterations) {
+  return pbkdf2(password, salt, iterations, 32, "sha256");
+}
+
+async function createPasswordRecord(password) {
+  const salt = crypto.randomBytes(16);
+  const hash = await hashPassword(password, salt);
+  return {
+    iterations: authIterations,
+    salt: base64(salt),
+    hash: base64(hash),
+  };
+}
+
+async function verifyPasswordRecord(password, record) {
+  if (!record) return false;
+  const expected = fromBase64(record.hash);
+  const actual = await hashPassword(password, fromBase64(record.salt), record.iterations || authIterations);
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+}
+
+async function deriveWrapKey(password, salt) {
+  return pbkdf2(`vault-wrap:${password}`, salt, authIterations, 32, "sha256");
+}
+
+function encryptVaultKey(vaultKey, wrapKey) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", wrapKey, iv);
+  const encrypted = Buffer.concat([cipher.update(vaultKey), cipher.final()]);
+  return {
+    iv: base64(iv),
+    tag: base64(cipher.getAuthTag()),
+    data: base64(encrypted),
+  };
+}
+
+function decryptVaultKey(payload, wrapKey) {
+  const decipher = crypto.createDecipheriv("aes-256-gcm", wrapKey, fromBase64(payload.iv));
+  decipher.setAuthTag(fromBase64(payload.tag));
+  return Buffer.concat([decipher.update(fromBase64(payload.data)), decipher.final()]);
+}
+
+async function createRoleRecord(password, vaultKey) {
+  const record = await createPasswordRecord(password);
+  const wrapSalt = crypto.randomBytes(16);
+  const wrapKey = await deriveWrapKey(password, wrapSalt);
+  return {
+    ...record,
+    wrapSalt: base64(wrapSalt),
+    wrappedVaultKey: encryptVaultKey(vaultKey, wrapKey),
+  };
+}
+
+async function unwrapRoleVaultKey(password, record) {
+  if (!record?.wrapSalt || !record?.wrappedVaultKey) return null;
+  const wrapKey = await deriveWrapKey(password, fromBase64(record.wrapSalt));
+  return decryptVaultKey(record.wrappedVaultKey, wrapKey);
+}
+
+function legacyOwnerRecord(auth) {
+  if (auth?.owner) return auth.owner;
+  if (auth?.admin) return auth.admin;
+  if (!auth?.authSalt || !auth?.authHash) return null;
+  return {
+    iterations: auth.authIterations || authIterations,
+    salt: auth.authSalt,
+    hash: auth.authHash,
+  };
+}
+
+function authFlags(auth) {
+  return {
+    ownerConfigured: Boolean(auth?.owner),
+    adminConfigured: Boolean(auth?.admin),
+    viewerConfigured: Boolean(auth?.viewer),
+  };
+}
+
+function sessionMeta(session) {
+  return {
+    role: session.role,
+    canManage: session.role === "owner" || session.role === "admin",
+    canManagePasswords: session.role === "owner",
+    ownerConfigured: Boolean(session.ownerConfigured),
+    adminConfigured: Boolean(session.adminConfigured),
+    viewerConfigured: Boolean(session.viewerConfigured),
+  };
 }
 
 async function createAuth(password) {
-  const authSalt = crypto.randomBytes(16);
-  const vaultSalt = crypto.randomBytes(16);
-  const authHash = await hashPassword(password, authSalt);
-  const vaultKey = await deriveKey(password, vaultSalt);
-
-  await writeJsonAtomic(authPath, {
-    version: 1,
+  const vaultKey = crypto.randomBytes(32);
+  const owner = await createRoleRecord(password, vaultKey);
+  const auth = {
+    version: 3,
     authIterations,
     vaultIterations,
-    authSalt: base64(authSalt),
-    authHash: base64(authHash),
-    vaultSalt: base64(vaultSalt),
-  });
+    vaultSalt: null,
+    owner,
+    admin: null,
+    viewer: null,
+  };
+
+  await writeJsonAtomic(authPath, auth);
   await writeEncryptedVault([], vaultKey);
 
-  return vaultKey;
+  return { key: vaultKey, role: "owner", ...authFlags(auth) };
 }
 
-async function verifyPassword(password) {
-  const auth = await readJson(authPath);
-  if (!auth) return createAuth(password);
+async function ensureAuthVersion(auth) {
+  if (!auth || auth.version >= 3) return auth;
 
-  const authSalt = fromBase64(auth.authSalt);
-  const expected = fromBase64(auth.authHash);
-  const actual = await hashPassword(password, authSalt);
+  const migrated = {
+    version: 3,
+    authIterations: auth.authIterations || authIterations,
+    vaultIterations: auth.vaultIterations || vaultIterations,
+    vaultSalt: auth.vaultSalt || null,
+    owner: legacyOwnerRecord(auth),
+    admin: null,
+    viewer: auth.viewer || null,
+  };
+  await writeJsonAtomic(authPath, migrated);
+  return migrated;
+}
 
-  if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) {
-    return null;
+async function resolveVaultKey(password, auth, record, role) {
+  const wrappedKey = await unwrapRoleVaultKey(password, record);
+  if (wrappedKey) return wrappedKey;
+
+  if (role === "owner" && auth.vaultSalt) {
+    return deriveKey(password, fromBase64(auth.vaultSalt), auth.vaultIterations || vaultIterations);
   }
 
-  return deriveKey(password, fromBase64(auth.vaultSalt), auth.vaultIterations || vaultIterations);
+  return null;
+}
+
+async function loginWithPassword(password, requestedRole) {
+  let auth = await readJson(authPath);
+  if (!auth) {
+    if (requestedRole !== "owner") return { error: "owner_required" };
+    return createAuth(password);
+  }
+
+  auth = await ensureAuthVersion(auth);
+  const role = roles.has(requestedRole) ? requestedRole : "viewer";
+  const record = auth[role];
+  const passwordOk = await verifyPasswordRecord(password, record);
+
+  if (!passwordOk) return null;
+
+  const key = await resolveVaultKey(password, auth, record, role);
+  if (!key) return null;
+
+  return { key, role, ...authFlags(auth) };
 }
 
 function encryptEntries(entries, key) {
@@ -174,6 +292,18 @@ function getSession(req) {
   return { token, ...session };
 }
 
+function requireManager(session, res) {
+  if (session.role === "owner" || session.role === "admin") return true;
+  sendJson(res, 403, { error: "manager_required" });
+  return false;
+}
+
+function requireOwner(session, res) {
+  if (session.role === "owner") return true;
+  sendJson(res, 403, { error: "owner_required" });
+  return false;
+}
+
 function normalizeSecret(secret) {
   return String(secret || "").toUpperCase().replace(/\s|-/g, "").replace(/=+$/g, "");
 }
@@ -210,9 +340,10 @@ function generateTotp(secret) {
   return String(binary % 1000000).padStart(6, "0");
 }
 
-function publicEntries(entries) {
+function publicEntries(entries, session) {
   const seconds = Math.floor(Date.now() / 1000);
   return {
+    ...sessionMeta(session),
     remaining: 30 - (seconds % 30),
     entries: entries.map((entry) => ({
       id: entry.id,
@@ -235,7 +366,63 @@ function validateEntryPayload(payload) {
   return { issuer, account, secret };
 }
 
+async function refreshSessionFlags(session) {
+  const auth = await ensureAuthVersion(await readJson(authPath));
+  Object.assign(session, authFlags(auth));
+}
+
 async function handleLogin(req, res) {
+  const payload = await readRequestJson(req);
+  const password = String(payload.password || "");
+  const requestedRole = roles.has(payload.role) ? payload.role : "viewer";
+
+  if (password.length < 8) {
+    sendJson(res, 400, { error: "password_too_short" });
+    return;
+  }
+
+  const login = await loginWithPassword(password, requestedRole);
+  if (!login || login.error) {
+    sendJson(res, login?.error === "owner_required" ? 409 : 401, { error: login?.error || "invalid_password" });
+    return;
+  }
+
+  const token = base64(crypto.randomBytes(32));
+  sessions.set(token, { ...login, expiresAt: Date.now() + sessionMaxAgeMs });
+  sendJson(res, 200, { ok: true, ...sessionMeta(login) }, { "Set-Cookie": sessionCookie(token) });
+}
+
+async function handleTokens(session, res) {
+  await refreshSessionFlags(session);
+  const entries = await readVault(session.key);
+  sendJson(res, 200, publicEntries(entries, session));
+}
+
+async function handleCreateEntry(req, session, res) {
+  if (!requireManager(session, res)) return;
+  const payload = await readRequestJson(req);
+  const entry = validateEntryPayload(payload);
+  const entries = await readVault(session.key);
+  entries.push({ id: crypto.randomUUID(), ...entry });
+  await writeEncryptedVault(entries, session.key);
+  sendJson(res, 201, publicEntries(entries, session));
+}
+
+async function handleDeleteEntry(id, session, res) {
+  if (!requireManager(session, res)) return;
+  const entries = await readVault(session.key);
+  const nextEntries = entries.filter((entry) => entry.id !== id);
+  await writeEncryptedVault(nextEntries, session.key);
+  sendJson(res, 200, publicEntries(nextEntries, session));
+}
+
+async function handleSetRolePassword(role, req, session, res) {
+  if (!requireOwner(session, res)) return;
+  if (!roles.has(role)) {
+    sendJson(res, 400, { error: "invalid_role" });
+    return;
+  }
+
   const payload = await readRequestJson(req);
   const password = String(payload.password || "");
 
@@ -244,36 +431,12 @@ async function handleLogin(req, res) {
     return;
   }
 
-  const key = await verifyPassword(password);
-  if (!key) {
-    sendJson(res, 401, { error: "invalid_password" });
-    return;
-  }
+  const auth = await ensureAuthVersion(await readJson(authPath));
+  auth[role] = await createRoleRecord(password, session.key);
+  await writeJsonAtomic(authPath, auth);
 
-  const token = base64(crypto.randomBytes(32));
-  sessions.set(token, { key, expiresAt: Date.now() + sessionMaxAgeMs });
-  sendJson(res, 200, { ok: true }, { "Set-Cookie": sessionCookie(token) });
-}
-
-async function handleTokens(session, res) {
-  const entries = await readVault(session.key);
-  sendJson(res, 200, publicEntries(entries));
-}
-
-async function handleCreateEntry(req, session, res) {
-  const payload = await readRequestJson(req);
-  const entry = validateEntryPayload(payload);
-  const entries = await readVault(session.key);
-  entries.push({ id: crypto.randomUUID(), ...entry });
-  await writeEncryptedVault(entries, session.key);
-  sendJson(res, 201, publicEntries(entries));
-}
-
-async function handleDeleteEntry(id, session, res) {
-  const entries = await readVault(session.key);
-  const nextEntries = entries.filter((entry) => entry.id !== id);
-  await writeEncryptedVault(nextEntries, session.key);
-  sendJson(res, 200, publicEntries(nextEntries));
+  Object.assign(session, authFlags(auth));
+  sendJson(res, 200, { ok: true, ...sessionMeta(session) });
 }
 
 setInterval(() => {
@@ -317,6 +480,17 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/entries") {
       await handleCreateEntry(req, session, res);
+      return;
+    }
+
+    const passwordMatch = url.pathname.match(/^\/passwords\/(owner|admin|viewer)$/);
+    if (req.method === "PUT" && passwordMatch) {
+      await handleSetRolePassword(passwordMatch[1], req, session, res);
+      return;
+    }
+
+    if (req.method === "PUT" && url.pathname === "/viewer-password") {
+      await handleSetRolePassword("viewer", req, session, res);
       return;
     }
 
