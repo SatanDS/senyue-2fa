@@ -224,6 +224,20 @@ async function refreshTokens() {
   renderTokens();
 }
 
+async function restoreSession() {
+  setHint(unlockHint, "正在检查登录状态...");
+  try {
+    await refreshTokens();
+    showApp();
+  } catch (error) {
+    const isLoggedOut = error.message === "unauthorized" || error.message === "auth_not_configured";
+    showLocked(
+      isLoggedOut ? undefined : `无法恢复登录状态：${error.message}。请重新登录。`,
+      isLoggedOut ? "ok" : "error"
+    );
+  }
+}
+
 unlockForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const password = $("passwordInput").value;
@@ -349,4 +363,4 @@ setInterval(async () => {
   state.lastRemaining = state.remaining;
 }, 1000);
 
-showLocked();
+restoreSession();

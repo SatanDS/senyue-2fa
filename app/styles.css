@@ -131,17 +131,41 @@ h3 { margin-bottom: 4px; font-size: 18px; }
 
 .password-panel {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(280px, 420px);
-  gap: 16px;
-  align-items: end;
+  gap: 18px;
   padding: 22px;
 }
 
 .password-form {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(170px, 220px) minmax(220px, 1fr) auto;
   gap: 12px;
   align-items: end;
+}
+
+.password-form .ghost {
+  min-width: 120px;
+}
+
+.confirm-row {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+  color: #304047;
+  font-weight: 700;
+}
+
+.confirm-row input {
+  width: 20px;
+  min-height: 20px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+}
+
+.confirm-row[hidden] {
+  display: none;
 }
 
 .compact {
@@ -248,6 +272,6 @@ button:active { transform: translateY(1px); }
 @media (max-width: 800px) {
   .topbar { align-items: flex-start; }
   .shell.is-locked { align-content: start; padding-top: 48px; }
-  .add-form { grid-template-columns: 1fr; }
-  .primary { width: 100%; }
+  .add-form, .password-form { grid-template-columns: 1fr; }
+  .primary, .password-form .ghost { width: 100%; }
 }
