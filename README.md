@@ -57,6 +57,23 @@ docker compose up -d --build --force-recreate
 - 旧版本已经创建过保险库时，原来的共享主密码会自动升级为所有者密码继续使用。
 - 所有者登录后可以在页面里设置管理员密码和员工查看密码。
 
+
+## 离线验证旧密码
+
+如果忘记密码，可以把可能的旧密码写成候选文件，一行一个。脚本只会输出匹配结果，不会打印 2FA Secret。
+
+```bash
+cd /opt/senyue-2fa/senyue-2fa
+cat > candidates.txt <<'EOF'
+可能的密码1
+可能的密码2
+可能的密码3
+EOF
+docker compose cp candidates.txt senyue-2fa-api:/data/candidates.txt
+docker compose exec senyue-2fa-api node verify-password-candidates.js /data/candidates.txt
+```
+
+如果输出 `MATCH`，用那一行显示的 `role` 和 `password` 登录页面。
 ## 数据保存位置
 
 数据保存在 Docker volume：

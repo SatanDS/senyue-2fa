@@ -1,7 +1,8 @@
 FROM node:20-alpine
 
 WORKDIR /app
-COPY package.json server.js ./
+COPY package.json .
+COPY *.js ./
 
 ENV PORT=3000
 ENV DATA_DIR=/data
