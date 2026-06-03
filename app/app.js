@@ -28,6 +28,9 @@ const passwordForm = $("passwordForm");
 const unlockHint = $("unlockHint");
 const passwordHint = $("passwordHint");
 const passwordStatus = $("passwordStatus");
+const passwordRoleSelect = $("passwordRoleSelect");
+const ownerConfirmLabel = $("ownerConfirmLabel");
+const ownerConfirmInput = $("ownerConfirmInput");
 const tokenGrid = $("tokenGrid");
 const emptyState = $("emptyState");
 const countdown = $("countdown");
@@ -235,7 +238,9 @@ unlockForm.addEventListener("submit", async (event) => {
       ? "密码至少需要 8 位。"
       : error.message === "owner_required"
         ? "首次创建保险库时请使用所有者身份登录。"
-        : "密码不正确，或云端保险库暂时无法访问。";
+        : error.message === "invalid_password"
+          ? "密码不正确，或角色选择不匹配。"
+          : `云端保险库暂时无法访问：${error.message}`;
     setHint(unlockHint, message, "error");
   }
 });
@@ -263,25 +268,43 @@ addForm.addEventListener("submit", async (event) => {
   }
 });
 
+passwordRoleSelect.addEventListener("change", () => {
+  const isOwner = passwordRoleSelect.value === "owner";
+  ownerConfirmLabel.hidden = !isOwner;
+  if (!isOwner) ownerConfirmInput.checked = false;
+});
+
 passwordForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const role = $("passwordRoleSelect").value;
+  const role = passwordRoleSelect.value;
   const password = $("rolePasswordInput").value;
+  if (!role) {
+    setHint(passwordHint, "请先选择要修改的用户组。", "error");
+    return;
+  }
+  if (role === "owner" && !ownerConfirmInput.checked) {
+    setHint(passwordHint, "修改所有者密码前需要勾选确认。", "error");
+    return;
+  }
   setHint(passwordHint, `正在保存${roleLabels[role]}密码...`);
 
   try {
     const payload = await api(`/passwords/${role}`, {
       method: "PUT",
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ password, confirmOwnerChange: role === "owner" && ownerConfirmInput.checked }),
     });
     setSessionMeta(payload);
     updateRoleUi();
     passwordForm.reset();
+    ownerConfirmLabel.hidden = true;
+    ownerConfirmInput.checked = false;
     setHint(passwordHint, `${roleLabels[role]}密码已保存。`, "ok");
   } catch (error) {
     const message = error.message === "password_too_short"
       ? "密码至少需要 8 位。"
-      : "保存失败，只有所有者可以修改用户组密码。";
+      : error.message === "owner_change_confirmation_required"
+        ? "修改所有者密码前需要勾选确认。"
+        : "保存失败，只有所有者可以修改用户组密码。";
     setHint(passwordHint, message, "error");
   }
 });
@@ -310,7 +333,7 @@ setInterval(async () => {
     try {
       await refreshTokens();
     } catch (error) {
-      showLocked("登录已过期，请重新输入密码。", "error");
+      roleHint.textContent = `验证码刷新失败：${error.message}。请手动刷新页面或重新登录。`;
     }
   }
 

@@ -53,15 +53,20 @@
           <form id="passwordForm" class="password-form">
             <label>
               用户组
-              <select id="passwordRoleSelect">
-                <option value="owner">所有者</option>
+              <select id="passwordRoleSelect" required>
+                <option value="" selected disabled>请选择</option>
                 <option value="admin">管理员</option>
                 <option value="viewer">员工查看</option>
+                <option value="owner">所有者</option>
               </select>
             </label>
             <label>
               新密码
               <input id="rolePasswordInput" type="password" minlength="8" autocomplete="new-password" required>
+            </label>
+            <label id="ownerConfirmLabel" class="confirm-row" hidden>
+              <input id="ownerConfirmInput" type="checkbox">
+              确认修改所有者密码
             </label>
             <button class="ghost" type="submit">保存</button>
           </form>

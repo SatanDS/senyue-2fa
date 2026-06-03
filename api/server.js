@@ -431,6 +431,11 @@ async function handleSetRolePassword(role, req, session, res) {
     return;
   }
 
+  if (role === "owner" && payload.confirmOwnerChange !== true) {
+    sendJson(res, 400, { error: "owner_change_confirmation_required" });
+    return;
+  }
+
   const auth = await ensureAuthVersion(await readJson(authPath));
   auth[role] = await createRoleRecord(password, session.key);
   await writeJsonAtomic(authPath, auth);
