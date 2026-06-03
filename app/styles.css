@@ -100,7 +100,7 @@ h3 { margin-bottom: 4px; font-size: 18px; }
   font-weight: 750;
 }
 
-.segmented input, select {
+.segmented input {
   position: absolute;
   inline-size: 1px;
   block-size: 1px;
