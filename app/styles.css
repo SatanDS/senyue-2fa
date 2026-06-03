@@ -1,0 +1,167 @@
+﻿:root {
+  color-scheme: light;
+  --bg: #f5f7f8;
+  --panel: #ffffff;
+  --text: #172026;
+  --muted: #65727a;
+  --line: #d8e0e4;
+  --accent: #0f766e;
+  --accent-strong: #115e59;
+  --danger: #b42318;
+  --shadow: 0 14px 40px rgba(23, 32, 38, 0.09);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text);
+  background: linear-gradient(135deg, #f8fbfa 0%, #eef4f5 42%, #f6f1e9 100%);
+}
+
+button, input { font: inherit; }
+
+.shell {
+  width: min(1120px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 32px 0 48px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+h1, h2, h3, p { margin-top: 0; }
+h1 { margin-bottom: 0; font-size: clamp(32px, 5vw, 56px); line-height: 1; }
+h2 { margin-bottom: 8px; font-size: 22px; }
+h3 { margin-bottom: 4px; font-size: 18px; }
+
+.panel {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.auth-panel {
+  max-width: 460px;
+  padding: 28px;
+}
+
+.add-panel { padding: 22px; margin-bottom: 28px; }
+.panel-head { display: flex; justify-content: space-between; gap: 16px; }
+.muted { color: var(--muted); margin-bottom: 16px; }
+.hint { min-height: 20px; color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+.hint.error { color: var(--danger); }
+.hint.ok { color: var(--accent-strong); }
+
+.stack, .add-form {
+  display: grid;
+  gap: 14px;
+}
+
+.add-form {
+  grid-template-columns: minmax(150px, 1fr) minmax(180px, 1.2fr) minmax(220px, 1.7fr) auto;
+  align-items: end;
+}
+
+label {
+  display: grid;
+  gap: 7px;
+  color: #304047;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #cbd6dc;
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: var(--text);
+  background: #fff;
+  outline: none;
+}
+
+input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.16);
+}
+
+button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform .15s ease, background .15s ease, border-color .15s ease;
+}
+
+button:active { transform: translateY(1px); }
+.primary { padding: 0 18px; color: white; background: var(--accent); font-weight: 750; }
+.primary:hover { background: var(--accent-strong); }
+.ghost { padding: 0 16px; background: rgba(255,255,255,.65); border: 1px solid var(--line); color: var(--text); }
+.ghost:hover { border-color: var(--accent); }
+
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.section-title h2 { margin-bottom: 0; }
+.countdown { color: var(--accent-strong); font-weight: 800; }
+
+.token-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.token-card { padding: 18px; }
+.token-meta { display: flex; justify-content: space-between; gap: 12px; }
+.account { color: var(--muted); margin-bottom: 18px; overflow-wrap: anywhere; }
+.icon-btn {
+  width: 34px;
+  min-height: 34px;
+  height: 34px;
+  color: var(--muted);
+  background: #f1f4f5;
+  font-size: 22px;
+  line-height: 1;
+}
+.icon-btn:hover { color: var(--danger); }
+.code {
+  width: 100%;
+  min-height: 74px;
+  color: #10201d;
+  background: #e8f3f1;
+  font-size: 36px;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+.code:hover { background: #dcefed; }
+.progress { height: 8px; margin-top: 14px; background: #edf1f2; border-radius: 999px; overflow: hidden; }
+.progress span { display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: left center; }
+.empty { padding: 28px; color: var(--muted); text-align: center; }
+
+@media (max-width: 800px) {
+  .topbar { align-items: flex-start; }
+  .add-form { grid-template-columns: 1fr; }
+  .primary { width: 100%; }
+}

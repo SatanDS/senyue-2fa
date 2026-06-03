@@ -1,0 +1,85 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>森岳 2FA</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="topbar">
+      <div>
+        <p class="eyebrow">Web TOTP Authenticator</p>
+        <h1>森岳 2FA</h1>
+      </div>
+      <button id="lockBtn" class="ghost" type="button" hidden>锁定</button>
+    </section>
+
+    <section id="lockedView" class="panel auth-panel">
+      <h2>解锁保险库</h2>
+      <p class="muted">密钥只在浏览器本地加密保存，服务器不会接收任何 2FA Secret。</p>
+      <form id="unlockForm" class="stack">
+        <label>
+          主密码
+          <input id="passwordInput" type="password" autocomplete="current-password" minlength="8" required>
+        </label>
+        <button class="primary" type="submit">解锁 / 创建</button>
+      </form>
+      <p id="unlockHint" class="hint"></p>
+    </section>
+
+    <section id="appView" hidden>
+      <section class="panel add-panel">
+        <div class="panel-head">
+          <div>
+            <h2>添加账号</h2>
+            <p class="muted">输入服务名、账号和 Base32 Secret。</p>
+          </div>
+        </div>
+        <form id="addForm" class="add-form">
+          <label>
+            服务名
+            <input id="issuerInput" type="text" placeholder="例如 GitHub" required>
+          </label>
+          <label>
+            账号
+            <input id="accountInput" type="text" placeholder="name@example.com" required>
+          </label>
+          <label class="secret-field">
+            Secret
+            <input id="secretInput" type="text" placeholder="JBSWY3DPEHPK3PXP" spellcheck="false" required>
+          </label>
+          <button class="primary" type="submit">添加</button>
+        </form>
+        <p class="hint">支持常见 TOTP：SHA-1、30 秒、6 位验证码。</p>
+      </section>
+
+      <section class="grid-wrap">
+        <div class="section-title">
+          <h2>验证码</h2>
+          <span id="countdown" class="countdown">30s</span>
+        </div>
+        <div id="emptyState" class="empty panel">还没有账号。添加一个 Secret 后，这里会显示动态验证码。</div>
+        <div id="tokenGrid" class="token-grid"></div>
+      </section>
+    </section>
+  </main>
+
+  <template id="tokenTemplate">
+    <article class="token-card">
+      <div class="token-meta">
+        <div>
+          <h3 class="issuer"></h3>
+          <p class="account"></p>
+        </div>
+        <button class="icon-btn delete" type="button" title="删除" aria-label="删除">×</button>
+      </div>
+      <button class="code" type="button" title="点击复制"></button>
+      <div class="progress"><span></span></div>
+    </article>
+  </template>
+
+  <script src="/app.js"></script>
+</body>
+</html>
