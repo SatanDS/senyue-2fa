@@ -9,11 +9,14 @@ const port = Number(process.env.PORT || 3000);
 const dataDir = process.env.DATA_DIR || "/data";
 const authPath = path.join(dataDir, "auth.json");
 const vaultPath = path.join(dataDir, "vault.json");
+const sessionsPath = path.join(dataDir, "sessions.json");
+const sessionSecretPath = path.join(dataDir, "session-secret");
 const maxBodyBytes = 128 * 1024;
 const sessions = new Map();
 const authIterations = 210000;
 const vaultIterations = 210000;
 const sessionMaxAgeMs = 12 * 60 * 60 * 1000;
+const sessionFileKey = await loadSessionFileKey();
 const roles = new Set(["owner", "admin", "viewer"]);
 
 function base64(bytes) {
@@ -49,6 +52,21 @@ function clearSessionCookie() {
   return "senyue_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0";
 }
 
+async function loadSessionFileKey() {
+  try {
+    const raw = (await readFile(sessionSecretPath, "utf8")).trim();
+    const key = fromBase64(raw);
+    if (key.length === 32) return key;
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+
+  await mkdir(dataDir, { recursive: true });
+  const key = crypto.randomBytes(32);
+  await writeFile(sessionSecretPath, `${base64(key)}\n`, { encoding: "utf8", mode: 0o600 });
+  return key;
+}
+
 async function readJson(filePath) {
   try {
     return JSON.parse(await readFile(filePath, "utf8"));
@@ -65,6 +83,64 @@ async function writeJsonAtomic(filePath, value) {
   await rename(tempPath, filePath);
 }
 
+function encryptSessionKey(key) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", sessionFileKey, iv);
+  const encrypted = Buffer.concat([cipher.update(key), cipher.final()]);
+  return {
+    iv: base64(iv),
+    tag: base64(cipher.getAuthTag()),
+    data: base64(encrypted),
+  };
+}
+
+function decryptSessionKey(payload) {
+  const decipher = crypto.createDecipheriv("aes-256-gcm", sessionFileKey, fromBase64(payload.iv));
+  decipher.setAuthTag(fromBase64(payload.tag));
+  return Buffer.concat([decipher.update(fromBase64(payload.data)), decipher.final()]);
+}
+
+async function saveSessions() {
+  const now = Date.now();
+  const items = [];
+
+  for (const [token, session] of sessions.entries()) {
+    if (session.expiresAt <= now) continue;
+    items.push({
+      token,
+      role: session.role,
+      expiresAt: session.expiresAt,
+      ownerConfigured: Boolean(session.ownerConfigured),
+      adminConfigured: Boolean(session.adminConfigured),
+      viewerConfigured: Boolean(session.viewerConfigured),
+      key: encryptSessionKey(session.key),
+    });
+  }
+
+  await writeJsonAtomic(sessionsPath, { version: 1, sessions: items });
+}
+
+async function loadSessions() {
+  const payload = await readJson(sessionsPath);
+  if (!payload?.sessions) return;
+
+  const now = Date.now();
+  for (const item of payload.sessions) {
+    if (!item.token || item.expiresAt <= now) continue;
+    try {
+      sessions.set(item.token, {
+        role: item.role,
+        expiresAt: item.expiresAt,
+        ownerConfigured: Boolean(item.ownerConfigured),
+        adminConfigured: Boolean(item.adminConfigured),
+        viewerConfigured: Boolean(item.viewerConfigured),
+        key: decryptSessionKey(item.key),
+      });
+    } catch (error) {
+      console.error("Failed to restore session", error);
+    }
+  }
+}
 async function deriveKey(password, salt, iterations = vaultIterations) {
   return pbkdf2(password, salt, iterations, 32, "sha256");
 }
@@ -369,6 +445,7 @@ function validateEntryPayload(payload) {
 async function refreshSessionFlags(session) {
   const auth = await ensureAuthVersion(await readJson(authPath));
   Object.assign(session, authFlags(auth));
+  await saveSessions();
 }
 
 async function handleLogin(req, res) {
@@ -389,6 +466,7 @@ async function handleLogin(req, res) {
 
   const token = base64(crypto.randomBytes(32));
   sessions.set(token, { ...login, expiresAt: Date.now() + sessionMaxAgeMs });
+  await saveSessions();
   sendJson(res, 200, { ok: true, ...sessionMeta(login) }, { "Set-Cookie": sessionCookie(token) });
 }
 
@@ -441,6 +519,7 @@ async function handleSetRolePassword(role, req, session, res) {
   await writeJsonAtomic(authPath, auth);
 
   Object.assign(session, authFlags(auth));
+  await saveSessions();
   sendJson(res, 200, { ok: true, ...sessionMeta(session) });
 }
 
@@ -468,6 +547,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/logout") {
       const session = getSession(req);
       if (session) sessions.delete(session.token);
+      await saveSessions();
       sendJson(res, 200, { ok: true }, { "Set-Cookie": clearSessionCookie() });
       return;
     }
@@ -515,6 +595,8 @@ const server = http.createServer(async (req, res) => {
     sendJson(res, publicErrors.has(error.message) ? 400 : statusCode, { error: error.message || "server_error" });
   }
 });
+
+await loadSessions();
 
 server.listen(port, () => {
   console.log(`SenYue 2FA API listening on ${port}`);
