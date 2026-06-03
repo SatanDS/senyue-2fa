@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>森岳 2FA</title>
-  <link rel="stylesheet" href="/styles.css?v=20260603-login-success">
+  <link rel="stylesheet" href="/styles.css?v=20260603-groups2">
 </head>
 <body>
   <main id="shell" class="shell is-locked">
@@ -81,10 +81,14 @@
           <div class="panel-head">
             <div>
               <h2>添加账号</h2>
-              <p class="muted">输入服务名、账号和 Base32 Secret。</p>
+              <p class="muted">输入分组、服务名、账号和 Base32 Secret。</p>
             </div>
           </div>
           <form id="addForm" class="add-form">
+            <label>
+              分组
+              <input id="groupInput" type="text" placeholder="例如 谷歌" maxlength="40" list="groupOptions">
+            </label>
             <label>
               服务名
               <input id="issuerInput" type="text" placeholder="例如 GitHub" required>
@@ -99,6 +103,7 @@
             </label>
             <button class="primary" type="submit">添加</button>
           </form>
+          <datalist id="groupOptions"></datalist>
           <p class="hint">支持常见 TOTP：SHA-1、30 秒、6 位验证码。</p>
         </section>
       </section>
@@ -111,6 +116,7 @@
           </div>
           <span id="countdown" class="countdown">30s</span>
         </div>
+        <div id="groupFilters" class="group-filters" aria-label="验证码分组筛选"></div>
         <div id="emptyState" class="empty panel">还没有账号。管理员或所有者添加 Secret 后，这里会显示动态验证码。</div>
         <div id="tokenGrid" class="token-grid"></div>
       </section>
@@ -122,7 +128,7 @@
       <div class="token-meta">
         <div>
           <h3 class="issuer"></h3>
-          <p class="account"></p>
+          <p class="account"></p><p class="group-name"></p>
         </div>
         <button class="icon-btn delete" type="button" title="删除" aria-label="删除">×</button>
       </div>
@@ -131,6 +137,6 @@
     </article>
   </template>
 
-  <script src="/app.js?v=20260603-login-success"></script>
+  <script src="/app.js?v=20260603-groups2"></script>
 </body>
 </html>

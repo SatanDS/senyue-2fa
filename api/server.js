@@ -404,8 +404,7 @@ function decodeBase32(secret) {
   return Buffer.from(bytes);
 }
 
-function generateTotp(secret) {
-  const counter = Math.floor(Date.now() / 1000 / 30);
+function generateTotp(secret, counter = Math.floor(Date.now() / 1000 / 30)) {
   const counterBytes = Buffer.alloc(8);
   counterBytes.writeUInt32BE(Math.floor(counter / 0x100000000), 0);
   counterBytes.writeUInt32BE(counter >>> 0, 4);
@@ -416,8 +415,14 @@ function generateTotp(secret) {
   return String(binary % 1000000).padStart(6, "0");
 }
 
+function normalizeGroup(group) {
+  const value = String(group || "").normalize("NFKC").trim().replace(/\s+/g, " ");
+  return value || "默认分组";
+}
+
 function publicEntries(entries, session) {
   const seconds = Math.floor(Date.now() / 1000);
+  const counter = Math.floor(seconds / 30);
   return {
     ...sessionMeta(session),
     remaining: 30 - (seconds % 30),
@@ -425,7 +430,8 @@ function publicEntries(entries, session) {
       id: entry.id,
       issuer: entry.issuer,
       account: entry.account,
-      code: generateTotp(entry.secret),
+      group: normalizeGroup(entry.group),
+      code: generateTotp(entry.secret, counter),
     })),
   };
 }
@@ -433,13 +439,15 @@ function publicEntries(entries, session) {
 function validateEntryPayload(payload) {
   const issuer = String(payload.issuer || "").trim();
   const account = String(payload.account || "").trim();
+  const group = normalizeGroup(payload.group);
   const secret = normalizeSecret(payload.secret);
 
   if (!issuer || issuer.length > 80) throw new Error("invalid_issuer");
   if (!account || account.length > 120) throw new Error("invalid_account");
+  if (group.length > 40) throw new Error("invalid_group");
   decodeBase32(secret);
 
-  return { issuer, account, secret };
+  return { issuer, account, group, secret };
 }
 
 async function refreshSessionFlags(session) {

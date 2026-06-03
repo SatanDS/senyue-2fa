@@ -10,6 +10,7 @@ const state = {
   ownerConfigured: false,
   adminConfigured: false,
   viewerConfigured: false,
+  selectedGroup: "全部",
 };
 
 const roleLabels = {
@@ -25,6 +26,8 @@ const appView = $("appView");
 const unlockForm = $("unlockForm");
 const addForm = $("addForm");
 const passwordForm = $("passwordForm");
+const groupFilters = $("groupFilters");
+const groupOptions = $("groupOptions");
 const unlockHint = $("unlockHint");
 const passwordHint = $("passwordHint");
 const passwordStatus = $("passwordStatus");
@@ -77,6 +80,18 @@ function selectedRole() {
   return document.querySelector('input[name="loginRole"]:checked')?.value || "viewer";
 }
 
+function normalizeGroupName(group) {
+  return String(group || "").normalize("NFKC").trim().replace(/\s+/g, " ") || "默认分组";
+}
+
+function entryGroup(entry) {
+  return normalizeGroupName(entry.group);
+}
+
+function groupNames() {
+  return Array.from(new Set(state.entries.map(entryGroup))).sort((a, b) => a.localeCompare(b, "zh-CN"));
+}
+
 function setSessionMeta(payload) {
   state.role = payload.role || state.role || "viewer";
   state.canManage = Boolean(payload.canManage);
@@ -93,6 +108,9 @@ function setTokenData(payload) {
   state.entries = payload.entries || [];
   state.remaining = payload.remaining || 30;
   state.lastRemaining = state.remaining;
+  if (state.selectedGroup !== "全部" && !groupNames().includes(state.selectedGroup)) {
+    state.selectedGroup = "全部";
+  }
   setSessionMeta(payload);
 }
 
@@ -176,15 +194,54 @@ async function copyCode(code, button) {
   }
 }
 
+function renderGroupFilters() {
+  const groups = groupNames();
+  groupFilters.innerHTML = "";
+  groupOptions.innerHTML = "";
+
+  groups.forEach((group) => {
+    const option = document.createElement("option");
+    option.value = group;
+    groupOptions.appendChild(option);
+  });
+
+  if (groups.length <= 1) {
+    groupFilters.hidden = true;
+    return;
+  }
+
+  groupFilters.hidden = false;
+  ["全部", ...groups].forEach((group) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = group === state.selectedGroup ? "active" : "";
+    button.textContent = group;
+    button.addEventListener("click", () => {
+      state.selectedGroup = group;
+      renderTokens();
+    });
+    groupFilters.appendChild(button);
+  });
+}
+
 function renderTokens() {
   tokenGrid.innerHTML = "";
-  emptyState.hidden = state.entries.length > 0;
   countdown.textContent = `${state.remaining}s`;
+  renderGroupFilters();
 
-  for (const item of state.entries) {
+  const visibleEntries = state.selectedGroup === "全部"
+    ? state.entries
+    : state.entries.filter((entry) => entryGroup(entry) === state.selectedGroup);
+  emptyState.hidden = visibleEntries.length > 0;
+  emptyState.textContent = state.entries.length === 0
+    ? "还没有账号。管理员或所有者添加 Secret 后，这里会显示动态验证码。"
+    : "当前分组没有账号。";
+
+  for (const item of visibleEntries) {
     const node = template.content.firstElementChild.cloneNode(true);
     node.querySelector(".issuer").textContent = item.issuer;
     node.querySelector(".account").textContent = item.account;
+    node.querySelector(".group-name").textContent = entryGroup(item);
 
     const codeButton = node.querySelector(".code");
     codeButton.textContent = item.code;
@@ -278,6 +335,7 @@ unlockForm.addEventListener("submit", async (event) => {
 
 addForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const group = normalizeGroupName($("groupInput").value);
   const issuer = $("issuerInput").value.trim();
   const account = $("accountInput").value.trim();
   const secret = normalizeSecret($("secretInput").value);
@@ -285,7 +343,7 @@ addForm.addEventListener("submit", async (event) => {
   try {
     const payload = await api("/entries", {
       method: "POST",
-      body: JSON.stringify({ issuer, account, secret }),
+      body: JSON.stringify({ issuer, account, group, secret }),
     });
     setTokenData(payload);
     updateRoleUi();
