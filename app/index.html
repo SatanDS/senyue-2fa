@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <main class="shell">
+  <main id="shell" class="shell is-locked">
     <section class="topbar">
       <div>
         <p class="eyebrow">Web TOTP Authenticator</p>
@@ -18,7 +18,7 @@
 
     <section id="lockedView" class="panel auth-panel">
       <h2>解锁保险库</h2>
-      <p class="muted">密钥只在浏览器本地加密保存，服务器不会接收任何 2FA Secret。</p>
+      <p class="muted">密钥在浏览器端加密后保存到云端，供公司成员共享使用。</p>
       <form id="unlockForm" class="stack">
         <label>
           主密码

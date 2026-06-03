@@ -1,19 +1,20 @@
 # 森岳 2FA
 
-一个可用 Docker Compose 部署的网页端 TOTP 2FA 验证器。
+一个可用 Docker Compose 部署的网页端 TOTP 2FA 验证器，支持公司成员共享同一套 2FA 数据。
 
 ## 特性
 
-- 浏览器本地生成 6 位 TOTP 验证码
-- Secret 不上传到服务器
-- 使用主密码通过 PBKDF2 + AES-GCM 加密后保存在 localStorage
-- Docker Compose 使用 nginx 提供静态页面
+- 服务器端统一生成 6 位 TOTP 验证码
+- 账号 Secret 使用公司共享主密码加密后保存到 Docker volume
+- 首次输入的主密码会创建共享保险库，之后所有成员使用同一个主密码登录
+- Docker Compose 包含 nginx 前端和 Node.js API 后端
 
 ## 部署
 
-```powershell
-cd D:\森岳2FA
-docker compose up -d
+```bash
+git clone https://github.com/SatanDS/senyue-2fa.git
+cd senyue-2fa
+docker compose up -d --build
 ```
 
 访问：
@@ -21,6 +22,8 @@ docker compose up -d
 ```text
 http://localhost:8070
 ```
+
+服务器访问时把 `localhost` 换成服务器 IP 或域名。
 
 如需修改端口，编辑 `docker-compose.yml`：
 
@@ -31,10 +34,26 @@ ports:
 
 把左侧 `8070` 改成你想暴露的端口即可。
 
+## 更新
+
+```bash
+git pull
+docker compose up -d --build --force-recreate
+```
+
+## 数据保存位置
+
+数据保存在 Docker volume：
+
+```text
+senyue-2fa-data
+```
+
+其中 Secret 不是明文保存，而是通过共享主密码派生密钥后使用 AES-256-GCM 加密保存。
+
 ## 重要说明
 
-- 首次输入的主密码用于创建本地加密保险库。
-- 忘记主密码后无法恢复已保存的 Secret。
-- 更换浏览器、清理站点数据或 localStorage 会导致本地保存的账号消失。
-- 建议只在可信网络中使用，并为站点配置 HTTPS 后再远程访问。
-
+- 请妥善保存首次创建保险库时使用的共享主密码。
+- 忘记共享主密码后无法恢复已保存的 Secret。
+- 公司成员共用同一个主密码即可看到同一套 2FA 数据。
+- 建议只在可信网络中使用，并为站点配置 HTTPS 和访问控制后再开放公网访问。

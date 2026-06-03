@@ -25,8 +25,26 @@ button, input { font: inherit; }
 
 .shell {
   width: min(1120px, calc(100vw - 32px));
+  min-height: 100vh;
   margin: 0 auto;
   padding: 32px 0 48px;
+}
+
+.shell.is-locked {
+  width: min(460px, calc(100vw - 32px));
+  display: grid;
+  align-content: center;
+  justify-items: stretch;
+  padding: 32px 0;
+}
+
+.shell.is-locked .topbar {
+  display: block;
+  margin-bottom: 18px;
+}
+
+.shell.is-locked .auth-panel {
+  width: 100%;
 }
 
 .topbar {
@@ -162,6 +180,7 @@ button:active { transform: translateY(1px); }
 
 @media (max-width: 800px) {
   .topbar { align-items: flex-start; }
+  .shell.is-locked { align-content: start; padding-top: 48px; }
   .add-form { grid-template-columns: 1fr; }
   .primary { width: 100%; }
 }
