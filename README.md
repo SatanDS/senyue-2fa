@@ -19,17 +19,17 @@ docker compose up -d
 访问：
 
 ```text
-http://localhost:8080
+http://localhost:8070
 ```
 
 如需修改端口，编辑 `docker-compose.yml`：
 
 ```yaml
 ports:
-  - "8080:80"
+  - "8070:80"
 ```
 
-把左侧 `8080` 改成你想暴露的端口即可。
+把左侧 `8070` 改成你想暴露的端口即可。
 
 ## 重要说明
 
@@ -37,3 +37,4 @@ ports:
 - 忘记主密码后无法恢复已保存的 Secret。
 - 更换浏览器、清理站点数据或 localStorage 会导致本地保存的账号消失。
 - 建议只在可信网络中使用，并为站点配置 HTTPS 后再远程访问。
+
