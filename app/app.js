@@ -250,14 +250,15 @@ function renderTokens() {
     const deleteButton = node.querySelector(".delete");
     deleteButton.hidden = !state.canManage;
     deleteButton.addEventListener("click", async () => {
-      if (!state.canManage) return;
+      if (!state.canManage || deleteButton.disabled) return;
+      deleteButton.disabled = true;
       try {
-        const payload = await api(`/entries/${encodeURIComponent(item.id)}`, { method: "DELETE" });
-        setTokenData(payload);
-        updateRoleUi();
-        renderTokens();
+        await api(`/entries/${encodeURIComponent(item.id)}`, { method: "DELETE" });
+        await refreshTokens();
       } catch (error) {
         alert(error.message === "manager_required" ? "只有所有者或管理员可以删除账号。" : "删除失败，请重新登录后再试。" );
+      } finally {
+        deleteButton.disabled = false;
       }
     });
 
@@ -345,6 +346,7 @@ addForm.addEventListener("submit", async (event) => {
       method: "POST",
       body: JSON.stringify({ issuer, account, group, secret }),
     });
+    state.selectedGroup = group;
     setTokenData(payload);
     updateRoleUi();
     addForm.reset();
@@ -354,9 +356,11 @@ addForm.addEventListener("submit", async (event) => {
       ? "只有所有者或管理员可以添加账号。"
       : error.message === "invalid_base32_secret"
         ? "Secret 格式不正确。Google 显示的 setup key 可以带空格，直接粘贴即可。"
-        : error.message === "invalid_issuer" || error.message === "invalid_account"
-          ? "服务名和账号不能为空，且长度不能太长。"
-          : error.message === "empty_response" || error.message === "invalid_token_response"
+        : error.message === "invalid_group"
+          ? "分组名称不能超过 40 个字符。"
+          : error.message === "invalid_issuer" || error.message === "invalid_account"
+            ? "服务名和账号不能为空，且长度不能太长。"
+            : error.message === "empty_response" || error.message === "invalid_token_response"
             ? "服务器没有返回验证码列表，请刷新页面后重试。"
             : `添加失败：${error.message}`;
     alert(message);
