@@ -305,7 +305,7 @@ function requireOwner(session, res) {
 }
 
 function normalizeSecret(secret) {
-  return String(secret || "").toUpperCase().replace(/\s|-/g, "").replace(/=+$/g, "");
+  return String(secret || "").normalize("NFKC").toUpperCase().replace(/[\s\-\u200B-\u200D\uFEFF]/gu, "").replace(/=+$/g, "");
 }
 
 function decodeBase32(secret) {
@@ -509,6 +509,9 @@ const server = http.createServer(async (req, res) => {
   } catch (error) {
     const statusCode = error.message === "request_body_too_large" ? 413 : 500;
     const publicErrors = new Set(["invalid_base32_secret", "invalid_issuer", "invalid_account"]);
+    if (!publicErrors.has(error.message) && error.message !== "request_body_too_large") {
+      console.error("Request failed", error);
+    }
     sendJson(res, publicErrors.has(error.message) ? 400 : statusCode, { error: error.message || "server_error" });
   }
 });

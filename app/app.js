@@ -47,7 +47,7 @@ async function api(path, options = {}) {
     ...options,
   });
 
-  if (response.status === 204) return null;
+  if (response.status === 204) throw new Error("empty_response");
 
   let payload = null;
   try {
@@ -65,7 +65,7 @@ async function api(path, options = {}) {
 }
 
 function normalizeSecret(secret) {
-  return secret.toUpperCase().replace(/\s|-/g, "").replace(/=+$/g, "");
+  return secret.normalize("NFKC").toUpperCase().replace(/[\s\-\u200B-\u200D\uFEFF]/gu, "").replace(/=+$/g, "");
 }
 
 function setHint(element, message, type = "") {
@@ -87,6 +87,9 @@ function setSessionMeta(payload) {
 }
 
 function setTokenData(payload) {
+  if (!payload || !Array.isArray(payload.entries)) {
+    throw new Error("invalid_token_response");
+  }
   state.entries = payload.entries || [];
   state.remaining = payload.remaining || 30;
   state.lastRemaining = state.remaining;
@@ -263,7 +266,13 @@ addForm.addEventListener("submit", async (event) => {
   } catch (error) {
     const message = error.message === "manager_required"
       ? "只有所有者或管理员可以添加账号。"
-      : "添加失败，请确认 Secret 是正确的 Base32 格式。";
+      : error.message === "invalid_base32_secret"
+        ? "Secret 格式不正确。Google 显示的 setup key 可以带空格，直接粘贴即可。"
+        : error.message === "invalid_issuer" || error.message === "invalid_account"
+          ? "服务名和账号不能为空，且长度不能太长。"
+          : error.message === "empty_response" || error.message === "invalid_token_response"
+            ? "服务器没有返回验证码列表，请刷新页面后重试。"
+            : `添加失败：${error.message}`;
     alert(message);
   }
 });
