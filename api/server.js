@@ -465,9 +465,12 @@ async function handleLogin(req, res) {
   }
 
   const token = base64(crypto.randomBytes(32));
-  sessions.set(token, { ...login, expiresAt: Date.now() + sessionMaxAgeMs });
+  const session = { ...login, expiresAt: Date.now() + sessionMaxAgeMs };
+  sessions.set(token, session);
   await saveSessions();
-  sendJson(res, 200, { ok: true, ...sessionMeta(login) }, { "Set-Cookie": sessionCookie(token) });
+
+  const entries = await readVault(session.key);
+  sendJson(res, 200, { ok: true, ...publicEntries(entries, session) }, { "Set-Cookie": sessionCookie(token) });
 }
 
 async function handleTokens(session, res) {

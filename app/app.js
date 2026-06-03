@@ -246,10 +246,24 @@ unlockForm.addEventListener("submit", async (event) => {
 
   try {
     const login = await api("/login", { method: "POST", body: JSON.stringify({ password, role }) });
-    setSessionMeta(login);
-    await refreshTokens();
+    if (Array.isArray(login.entries)) {
+      setTokenData(login);
+    } else {
+      setSessionMeta(login);
+      state.entries = [];
+      state.remaining = 30;
+      state.lastRemaining = 30;
+    }
     setHint(unlockHint, "已解锁", "ok");
     showApp();
+
+    if (!Array.isArray(login.entries)) {
+      try {
+        await refreshTokens();
+      } catch (tokenError) {
+        roleHint.textContent = `已登录，但验证码列表刷新失败：${tokenError.message}。请手动刷新页面。`;
+      }
+    }
   } catch (error) {
     const message = error.message === "password_too_short"
       ? "密码至少需要 8 位。"
