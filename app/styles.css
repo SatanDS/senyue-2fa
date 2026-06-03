@@ -137,12 +137,40 @@ h3 { margin-bottom: 4px; font-size: 18px; }
 
 .password-form {
   display: grid;
-  grid-template-columns: minmax(170px, 220px) minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(220px, 260px) minmax(280px, 1fr) minmax(110px, 120px);
   gap: 12px;
-  align-items: end;
+  align-items: start;
+}
+
+.password-field {
+  grid-template-rows: auto 44px;
+}
+
+.select-box {
+  position: relative;
+  display: block;
+}
+
+.select-box select {
+  appearance: none;
+  padding-right: 40px;
+}
+
+.select-box::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 15px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #718189;
+  border-bottom: 2px solid #718189;
+  pointer-events: none;
+  transform: translateY(-65%) rotate(45deg);
 }
 
 .password-form .ghost {
+  align-self: end;
   min-width: 120px;
 }
 
@@ -207,7 +235,7 @@ input, select {
   outline: none;
 }
 
-input:focus {
+input:focus, select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.16);
 }

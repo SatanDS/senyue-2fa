@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>森岳 2FA</title>
-  <link rel="stylesheet" href="/styles.css?v=20260603-session">
+  <link rel="stylesheet" href="/styles.css?v=20260603-password-fields">
 </head>
 <body>
   <main id="shell" class="shell is-locked">
@@ -51,17 +51,19 @@
             <p id="passwordStatus" class="muted">所有者可以设置或更新所有用户组密码。</p>
           </div>
           <form id="passwordForm" class="password-form">
-            <label>
-              用户组
-              <select id="passwordRoleSelect" required>
-                <option value="" selected disabled>请选择</option>
-                <option value="admin">管理员</option>
-                <option value="viewer">员工查看</option>
-                <option value="owner">所有者</option>
-              </select>
+            <label class="password-field">
+              <span>用户组</span>
+              <span class="select-box">
+                <select id="passwordRoleSelect" required>
+                  <option value="" selected disabled>请选择</option>
+                  <option value="admin">管理员</option>
+                  <option value="viewer">员工查看</option>
+                  <option value="owner">所有者</option>
+                </select>
+              </span>
             </label>
-            <label>
-              新密码
+            <label class="password-field">
+              <span>新密码</span>
               <input id="rolePasswordInput" type="password" minlength="8" autocomplete="new-password" required>
             </label>
             <label id="ownerConfirmLabel" class="confirm-row" hidden>
@@ -129,6 +131,6 @@
     </article>
   </template>
 
-  <script src="/app.js?v=20260603-session"></script>
+  <script src="/app.js?v=20260603-password-fields"></script>
 </body>
 </html>
