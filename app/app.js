@@ -1,4 +1,4 @@
-﻿const STORAGE_KEY = "senyue-2fa-vault";
+const STORAGE_KEY = "senyue-2fa-vault";
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 

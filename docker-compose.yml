@@ -1,4 +1,4 @@
-﻿services:
+services:
   senyue-2fa:
     image: nginx:1.27-alpine
     container_name: senyue-2fa

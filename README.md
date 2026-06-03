@@ -1,4 +1,4 @@
-﻿# 森岳 2FA
+# 森岳 2FA
 
 一个可用 Docker Compose 部署的网页端 TOTP 2FA 验证器。
 
